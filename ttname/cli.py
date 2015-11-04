@@ -216,10 +216,13 @@ class TTNameCLI(object):
                 entry = self.table.getName(name, self.platform, self.encoding,
                                         self.lang, True)
                 entry.string = value
-                print entry.string
+                # don't pollute files written to stdout
+                if outfile != sys.stdout:
+                    print entry.string
             
         self.table.save(outfile)
-        outfile.close()
+        if outfile != sys.stdout:
+            outfile.close()
     
         if self.args.outfile is None:
             os.unlink(self.args.infile)
