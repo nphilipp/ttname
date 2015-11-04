@@ -34,7 +34,12 @@ objects representing the font metadata "name" table and its Records
 
 from StringIO import StringIO
 from fontTools.ttLib import TTFont
-import fontTools.ttLib.xmlImport
+try:
+    import fontTools.misc.xmlReader as xmlReader
+    xmlImport = None
+except ImportError:
+    import fontTools.ttLib.xmlImport as xmlImport
+    xmlReader = None
 import collections
 import tempfile
 import sys
@@ -49,14 +54,28 @@ except ImportError: #pragma: no cover
 # EVIL MONKEYPATCH HACKS
 
 # everything in TTFont takes a file object but the XML reader.  fml.
-def _parse(self):
-    if hasattr(self.fileName, 'read'):
-        self.parseFile(self.fileName)
-    #this never gets used, it's just to be exceedingly correct
-    else:   #pragma: no cover
-        self.parseFile(open(fileName))
+if xmlReader:
+    def _read(self):
+        if self.progress:
+            import stat
+            self.progress.set(0, os.stat(self.fileName)[stat.ST_SIZE] // 100 or 1)
+        if hasattr(self.fileName, 'read'):
+            self._parseFile(self.fileName)
+        else:
+            file = open(self.fileName, 'rb')
+            self._parseFile(file)
+            file.close()
 
-fontTools.ttLib.xmlImport.ExpatParser.parse = _parse
+    xmlReader.XMLReader.read = _read
+else:
+    def _parse(self):
+        if hasattr(self.fileName, 'read'):
+            self.parseFile(self.fileName)
+        #this never gets used, it's just to be exceedingly correct
+        else:   #pragma: no cover
+            self.parseFile(open(self.fileName))
+
+    xmlImport.ExpatParser.parse = _parse
 
 class StrungIO(StringIO):
     "A special StringIO that ignores ttx's foolish close operations"
